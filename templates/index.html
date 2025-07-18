@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link
+      rel="stylesheet"
+      href="{{url_for('static',filename='css/main.css')}}"
+    />
+    <link rel="stylesheet" href="../static/css/main.css" />
+    <title>Spendracker</title>
+  </head>
+  <body>
+    <div class="frame">
+      <!-- SIDEBAR -->
+      <div class="sidebar">
+        <div class="logo">Spendracker</div>
+
+        <div class="totalsBox">
+          <div class="totalInc">
+            <label for=""
+              >Income <br /><span class="totalLabel"
+                >₹{{total_income}}</span
+              ></label
+            >
+          </div>
+          <div class="totalExp">
+            <label for=""
+              >Expenditure <br /><span class="totalLabel"
+                >₹{{total_spend}}</span
+              ></label
+            >
+          </div>
+          <div class="totalNet">
+            <label for=""
+              >Net Total <br />
+              <span class="totalLabel">₹{{net_total}}</span></label
+            >
+          </div>
+        </div>
+
+        <form action="/create" method="post">
+          <div class="inputArea">
+            <div class="amountInput" id="inputBox">
+              <label for="" id="inputLabel">Amount</label>
+              <input
+                name="amount"
+                class="inputField"
+                type="text"
+                placeholder="XXXX.XX"
+              />
+            </div>
+            <div class="transactionInput" id="inputBox">
+              <label for="" id="inputLabel">Transaction Type</label>
+              <input
+                name="transaction_type"
+                class="inputField"
+                placeholder="I or E"
+                type="text"
+              />
+            </div>
+            <div class="categoryInput" id="inputBox">
+              <label for="" id="inputLabel">Category</label>
+              <input
+                name="category"
+                class="inputField"
+                placeholder="Add Description"
+                type="text"
+              />
+            </div>
+            <div class="dateInput" id="inputBox">
+              <label for="" id="inputLabel">Date</label>
+              <input name="date_created" class="inputField" type="date" />
+            </div>
+            <div class="submitButBox">
+              <input value="Create" class="submitBut" type="submit" />
+            </div>
+          </div>
+        </form>
+      </div>
+
+      <!-- TRANSACTIONS -->
+      <div class="transactionSection">
+        <div class="transactionHead">
+          <div class="serialHeading">#</div>
+          <div class="amountHeading">Amount</div>
+          <div class="transactionHeading">Trasaction</div>
+          <div class="dateHeading">Date</div>
+        </div>
+        <br class="transactionSeperator" />
+        <div class="transactionCardsHolder">
+          {% for transaction in transactions %}
+          <div
+            class="transactionRow"
+            data-id="{{ transaction[0] }}"
+            data-uniqueid="{{ transaction[1] }}"
+            data-amount="{{ transaction[2] }}"
+            data-type="{{ transaction[3] }}"
+            data-category="{{ transaction[4] }}"
+            data-date="{{ transaction[5] }}"
+            data-time="{{ transaction[6] }}"
+          >
+            <div class="transactionCol" id="serialCell">{{transaction[0]}}</div>
+            <div class="transactionCol" id="amountCell">
+              ₹{{transaction[2]}}
+            </div>
+            <div class="transactionCol" id="transactionCell">
+              {{transaction[3]}}
+            </div>
+            <div class="transactionCol" id="dateCell">{{transaction[5]}}</div>
+          </div>
+
+          {% endfor %}
+        </div>
+      </div>
+
+      <!-- CHARTS -->
+      <div class="charts">
+        <div class="spendChartBox">
+          <div class="spendChartHead">Spendings:</div>
+          <canvas id="spendChart"></canvas>
+        </div>
+        <div class="earnChartBox">
+          <div class="earnChartHead">Incomes:</div>
+          <canvas id="earnChart"></canvas>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal" id="transaction-modal">
+      <div class="modal-content">
+        <div class="modal-head">
+          <p><strong>ID:</strong> <span id="modal-id"></span></p>
+          <span class="close">x</span>
+        </div>
+        <div class="transaction-qr-box">
+          <img id="modal-qr" src="" alt="QR Code"" />
+        </div>
+        <div class="modal-body">
+          <table>
+            <tbody>
+              <tr>
+                <th scope="row">Amount:</th>
+                <td>
+                  ₹<span id="modal-amount"></span>
+                  <input
+                    type="number"
+                    id="edit-amount"
+                    name="amount"
+                    style="display: none"
+                  />
+                </td>
+              </tr>
+              <tr>
+                <th scope="row">Type:</th>
+                <td>
+                  <span id="modal-type"></span>
+                  <select
+                    id="edit-type"
+                    name="transaction_type"
+                    style="display: none"
+                  >
+                    <option value="i">Income</option>
+                    <option value="e">Expenditure</option>
+                  </select>
+                </td>
+              </tr>
+              <tr>
+                <th scope="row">Category:</th>
+                <td>
+                  <span id="modal-category"></span>
+                  <input
+                    type="text"
+                    id="edit-category"
+                    name="category"
+                    style="display: none"
+                  />
+                </td>
+              </tr>
+              <tr>
+                <th scope="row">Date:</th>
+                <td>
+                  <span id="modal-date"></span>
+                  <input
+                    type="date"
+                    id="edit-date"
+                    name="date_created"
+                    style="display: none"
+                  />
+                </td>
+              </tr>
+              <tr>
+                <th scope="row">Time:</th>
+                <td><span id="modal-time"></span></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="modal-actions">
+          <button id="edit-save-btn">Edit</button>
+          <input type="hidden" id="transactionId" name="id" />
+          <button id="delete-btn" type="button">Delete</button>
+        </div>
+      </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script>
+      const spendLabels = {{spendLabel|tojson|safe}};
+      const dataSpends = {{dataSpend|tojson|safe}};
+      const earnLabels = {{earnLabel|tojson|safe}};
+      const dataEarns = {{dataEarn|tojson|safe}};
+    </script>
+    <script src="{{url_for('static',filename='js/script.js')}}"></script>
+  </body>
+</html>
