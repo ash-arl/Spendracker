@@ -1,28 +1,36 @@
-from flask import Flask, render_template, request, redirect, url_for
+from flask import Flask, render_template, request, redirect, url_for, jsonify
+from flask_sqlalchemy import SQLAlchemy
+import os
 from datetime import datetime, time
 import psycopg2
 import qrcode
 import base64
 from io import BytesIO
 from hashids import Hashids
-from flask import jsonify
+import urllib.parse as urlparse
+import ssl
+from dotenv import load_dotenv
+load_dotenv()
 
 
 app = Flask(__name__)
 
-conn = psycopg2.connect(database = "transactionDB", user = "postgres", password="asharl", host = "localhost", port = "5432")
-cur = conn.cursor()
-cur.execute('''CREATE TABLE IF NOT EXISTS transactions (
-            id serial primary key, 
-            randid varchar(24), 
-            amount NUMERIC(10,2), 
-            transaction_type varchar(1), 
-            category varchar(50), 
-            date_created date, 
-            time_created time);''')
-conn.commit()
-cur.close()
-conn.close()
+def get_db_connection():
+    DATABASE_URL = os.getenv("DATABASE_URL")
+    if not DATABASE_URL:
+        raise Exception("DATABASE_URL not set. Please check Railway variables.")
+
+    result = urlparse.urlparse(DATABASE_URL)
+
+    return psycopg2.connect(
+        dbname=result.path[1:],
+        user=result.username,
+        password=result.password,
+        host=result.hostname,
+        port=result.port,
+        sslmode="require"
+    )
+
 
 def crypticIdCreator(amount: int, date_created: int, time_created: int, transaction_type: str) -> str:
     type_digit = 1 if transaction_type == 'i' else 0
@@ -33,24 +41,10 @@ def crypticIdCreator(amount: int, date_created: int, time_created: int, transact
     
     return encoded
 
-# def decodeCrypticId(crypt_id: str):
-#     hashids = Hashids(salt="q9vpD23yqp9vaKL43p9ayt", min_length=24)
-#     decoded = hashids.decode(crypt_id)
-#     if len(decoded) != 4:
-#         raise ValueError("Invalid encoded ID")
-    
-#     amount_cents, date_digits, time_digits, type_digit = decoded
-#     return {
-#         "amount": amount_cents / 100,
-#         "date": str(date_digits),
-#         "time": str(time_digits),
-#         "type": "i" if type_digit == 1 else "e"
-#     }
-
 #Home route
 @app.route('/')
 def index():
-  conn = psycopg2.connect(database = "transactionDB", user = "postgres", password = "asharl", host = "localhost", port = "5432")
+  conn = get_db_connection()
   cur = conn.cursor()
   cur.execute('''SELECT * FROM transactions''')
   transactions = cur.fetchall()
@@ -84,7 +78,7 @@ def index():
 #New transaction creation
 @app.route('/create',methods=['POST'])
 def create():
-  conn = psycopg2.connect(database = "transactionDB", user = "postgres", password = "asharl", host = "localhost",port = "5432")
+  conn = get_db_connection()
   cur = conn.cursor()
 
   amount = float(request.form['amount'])
@@ -111,7 +105,7 @@ def create():
 
 @app.route('/qr/<int:txn_id>')
 def get_qr(txn_id):
-    conn = psycopg2.connect(database="transactionDB", user="postgres", password="asharl", host="localhost", port="5432")
+    conn = get_db_connection()
     cur = conn.cursor()
     cur.execute("SELECT * FROM transactions WHERE id = %s", (txn_id,))
     txn = cur.fetchone()
@@ -142,7 +136,7 @@ from flask import jsonify
 @app.route('/edit/<int:txn_id>', methods=['POST'])
 def edit_transaction(txn_id):
     data = request.get_json()
-    conn = psycopg2.connect(database="transactionDB", user="postgres", password="asharl", host="localhost", port="5432")
+    conn = get_db_connection()
     cur = conn.cursor()
 
     cur.execute("""
@@ -162,7 +156,7 @@ def edit_transaction(txn_id):
 
 @app.route('/delete/<int:txn_id>', methods=['DELETE'])
 def delete_transaction(txn_id):
-    conn = psycopg2.connect(database="transactionDB", user="postgres", password="asharl", host="localhost", port="5432")
+    conn = get_db_connection()
     cur = conn.cursor()
     cur.execute("DELETE FROM transactions WHERE id = %s", (txn_id,))
     conn.commit()
@@ -170,6 +164,24 @@ def delete_transaction(txn_id):
     conn.close()
     return '', 204
 
+@app.before_first_request
+def create_table_if_not_exists():
+    conn = get_db_connection()
+    cur = conn.cursor()
+    cur.execute('''
+        CREATE TABLE IF NOT EXISTS transactions (
+            id serial primary key, 
+            randid varchar(24), 
+            amount NUMERIC(10,2), 
+            transaction_type varchar(1), 
+            category varchar(50), 
+            date_created date, 
+            time_created time
+        );
+    ''')
+    conn.commit()
+    cur.close()
+    conn.close()
 
 
 if __name__ == "__main__":
