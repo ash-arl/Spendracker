@@ -39,7 +39,7 @@ def crypticIdCreator(amount: int, date_created: int, time_created: int, transact
     return hashids.encode(to_encode)
 
 # Create table if not exists
-@app.before_first_request
+
 def create_table_if_not_exists():
     conn = get_db_connection()
     cur = conn.cursor()
@@ -181,4 +181,5 @@ def delete_transaction(txn_id):
 
 # Run the app
 if __name__ == "__main__":
-    app.run(debug=True)
+  create_table_if_not_exists()
+  app.run(debug=True)
